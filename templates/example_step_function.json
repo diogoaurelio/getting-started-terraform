@@ -1,0 +1,60 @@
+{
+  "Comment": "Executing the part of the Script that creates the identity csv",
+  "StartAt": "InitialState",
+  "States": {
+    "InitialState": {
+      "Type": "Pass",
+      "Next": "Identity",
+      "Result": {
+        "data": {
+          "execution": "identity"
+        }
+      }
+    },
+    "Identity": {
+      "Type": "Task",
+      "Resource": "${aws_lambda_function_arn}",
+      "Next": "IdentityRedshiftLoad",
+      "Retry": [ {
+        "ErrorEquals": ["States.TaskFailed", "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+        "IntervalSeconds": 1800,
+        "MaxAttempts": 2,
+        "BackoffRate": 2.0
+      } ],
+      "Catch": [ {
+        "ErrorEquals": [ "States.ALL" ],
+        "Next": "IdentityFailed"
+      } ]
+    },
+    "IdentityRedshiftLoad": {
+      "Type": "Task",
+      "Resource": "${aws_redshift_lambda_function_arn}",
+      "Retry": [ {
+        "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+        "IntervalSeconds": 1800,
+        "MaxAttempts": 1,
+        "BackoffRate": 2.0
+      }
+      ],
+      "Catch": [ {
+        "ErrorEquals": [ "States.ALL" ],
+        "Next": "IdentityFailed"
+      } ],
+      "End": true
+    },
+    "IdentityFailed": {
+      "Type": "Pass",
+      "Next": "IdentityWriteErrorFile",
+      "Result": {
+        "data": {
+          "execution": "identityFailed"
+        }
+      }
+    },
+    "IdentityWriteErrorFile": {
+      "Type": "Task",
+      "End": true,
+      "Resource": "${aws_lambda_function_arn}"
+    }
+  }
+}
